@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <title>Geiger Counter Hunt</title>
+  <style>
+    :root {
+      --safe-bg: #0d3b1e;
+      --warning-bg: #b77900;
+      --danger-bg: #8b0000;
+      --text-light: #f5f7fa;
+      --text-dark: #1f1f1f;
+      --accent: #ffffff;
+      --track: rgba(255, 255, 255, 0.28);
+      --danger-text: #ffffff;
+      --locked-bg: #ffffff;
+      --locked-text: #cc0000;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: "Courier New", Courier, monospace;
+      -webkit-font-smoothing: antialiased;
+      touch-action: manipulation;
+      background: #000;
+      color: var(--text-light);
+    }
+
+    body {
+      transition: background-color 300ms linear;
+    }
+
+    .app {
+      width: 100vw;
+      height: 100dvh;
+      max-width: 1024px;
+      margin: 0 auto;
+      display: none;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: stretch;
+      padding: env(safe-area-inset-top, 12px) 24px env(safe-area-inset-bottom, 24px);
+      background: var(--safe-bg);
+      color: var(--text-light);
+      transition: background-color 300ms ease;
+      text-align: center;
+      gap: 16px;
+    }
+
+    .app.active {
+      display: flex;
+    }
+
+    .splash {
+      width: 100vw;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 32px;
+      background: radial-gradient(circle at center, #1b2735 0%, #090a0f 70%);
+      color: #e8f0ff;
+      gap: 18px;
+    }
+
+    .splash h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      letter-spacing: 1.5px;
+    }
+
+    .splash p {
+      font-size: clamp(1rem, 2.2vw, 1.4rem);
+      max-width: 760px;
+      line-height: 1.4;
+      opacity: 0.9;
+    }
+
+    .mission-btn {
+      margin-top: 10px;
+      border: 3px solid #f0ff66;
+      background: #111;
+      color: #f0ff66;
+      font-size: clamp(1.2rem, 2.8vw, 1.8rem);
+      font-weight: 700;
+      letter-spacing: 1px;
+      border-radius: 14px;
+      padding: 16px 28px;
+      cursor: pointer;
+      min-width: 270px;
+    }
+
+    .mission-btn:active {
+      transform: scale(0.98);
+    }
+
+    .header {
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      border-radius: 12px;
+      padding: 14px;
+      font-size: clamp(1rem, 2.2vw, 1.6rem);
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      min-height: 62px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-transform: uppercase;
+      backdrop-filter: blur(2px);
+    }
+
+    .icon-wrap {
+      flex: 1 1 auto;
+      min-height: 220px;
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      padding: 24px;
+    }
+
+    .icon {
+      font-size: clamp(8rem, 25vw, 14rem);
+      line-height: 1;
+      user-select: none;
+      filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.4));
+    }
+
+    .signal-panel {
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .signal-title {
+      font-size: clamp(1rem, 2.2vw, 1.4rem);
+      letter-spacing: 1px;
+      font-weight: 700;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 26px;
+      border-radius: 99px;
+      background: var(--track);
+      border: 2px solid rgba(255, 255, 255, 0.6);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #58ff58, #ffe75a, #ff6b6b);
+      transition: width 250ms linear;
+    }
+
+    .coords {
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: clamp(1rem, 2.3vw, 1.35rem);
+      line-height: 1.4;
+      min-height: 88px;
+    }
+
+    .coords strong {
+      display: inline-block;
+      min-width: 85px;
+    }
+
+    .locked-panel {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      position: absolute;
+      inset: 0;
+      padding: 24px;
+      background: var(--locked-bg);
+      color: var(--locked-text);
+      text-align: center;
+    }
+
+    .locked-panel h2 {
+      font-size: clamp(2rem, 6vw, 3.2rem);
+      letter-spacing: 1px;
+    }
+
+    .locked-panel p {
+      font-size: clamp(1.2rem, 3vw, 2rem);
+      font-weight: 700;
+    }
+
+    .restart-btn {
+      border: 3px solid var(--locked-text);
+      background: transparent;
+      color: var(--locked-text);
+      font-size: clamp(1.1rem, 2.5vw, 1.6rem);
+      font-weight: 800;
+      letter-spacing: 1px;
+      border-radius: 12px;
+      padding: 14px 24px;
+      cursor: pointer;
+      min-width: 280px;
+    }
+
+    .danger-pulse {
+      animation: pulse 1s infinite;
+    }
+
+    .flash {
+      animation: flash 500ms step-end infinite;
+    }
+
+    @keyframes pulse {
+      0% { background-color: #5d0000; }
+      50% { background-color: #c40000; }
+      100% { background-color: #5d0000; }
+    }
+
+    @keyframes flash {
+      0% { opacity: 1; }
+      50% { opacity: 0.2; }
+      100% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <section id="splash" class="splash">
+    <h1>GEIGER COUNTER MISSION</h1>
+    <p>Primary Science Team: press begin to activate location tracking and scanner audio.</p>
+    <button id="beginBtn" class="mission-btn">BEGIN MISSION</button>
+  </section>
+
+  <main id="app" class="app" aria-live="polite">
+    <div id="header" class="header">SYSTEM: SCANNING...</div>
+
+    <section id="iconWrap" class="icon-wrap">
+      <div id="icon" class="icon">☢</div>
+      <div id="lockedPanel" class="locked-panel">
+        <h2>TARGET LOCKED</h2>
+        <p id="lockedZone">Zone: ---</p>
+        <button id="restartBtn" class="restart-btn">RESTART SCANNER</button>
+      </div>
+    </section>
+
+    <section class="signal-panel">
+      <div class="signal-title">SIGNAL STRENGTH</div>
+      <div class="progress-track">
+        <div id="progressFill" class="progress-fill"></div>
+      </div>
+    </section>
+
+    <section id="coords" class="coords">
+      <div><strong>LAT:</strong> <span id="latReadout">--</span></div>
+      <div><strong>LONG:</strong> <span id="longReadout">--</span></div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const HOT_ZONES = [
+        { name: "Zone A", lat: 51.5074, lon: -0.1278 },
+        { name: "Zone B", lat: 51.5074, lon: -0.1278 },
+        { name: "Zone C", lat: 51.5074, lon: -0.1278 },
+        { name: "Zone D", lat: 51.5074, lon: -0.1278 },
+        { name: "Zone E", lat: 51.5074, lon: -0.1278 }
+      ];
+
+      const STATE = {
+        SAFE: "SAFE",
+        WARNING: "WARNING",
+        DANGER: "DANGER",
+        LOCKED: "LOCKED"
+      };
+
+      const UI = {
+        splash: document.getElementById("splash"),
+        app: document.getElementById("app"),
+        beginBtn: document.getElementById("beginBtn"),
+        header: document.getElementById("header"),
+        iconWrap: document.getElementById("iconWrap"),
+        icon: document.getElementById("icon"),
+        progressFill: document.getElementById("progressFill"),
+        latReadout: document.getElementById("latReadout"),
+        longReadout: document.getElementById("longReadout"),
+        lockedPanel: document.getElementById("lockedPanel"),
+        lockedZone: document.getElementById("lockedZone"),
+        restartBtn: document.getElementById("restartBtn")
+      };
+
+      let watchId = null;
+      let currentState = STATE.SAFE;
+      let lockCandidateSince = null;
+      let isLocked = false;
+      let nearestZone = HOT_ZONES[0];
+      let nearestDistance = Number.POSITIVE_INFINITY;
+      let clickTimer = null;
+      let clickAudio = null;
+      let userLat = null;
+      let userLon = null;
+
+      function toRad(value) {
+        return (value * Math.PI) / 180;
+      }
+
+      function haversineMeters(lat1, lon1, lat2, lon2) {
+        const earthRadius = 6371000;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return earthRadius * c;
+      }
+
+      function findClosestZone(lat, lon) {
+        let closest = HOT_ZONES[0];
+        let minDistance = Number.POSITIVE_INFINITY;
+
+        for (const zone of HOT_ZONES) {
+          const d = haversineMeters(lat, lon, zone.lat, zone.lon);
+          if (d < minDistance) {
+            minDistance = d;
+            closest = zone;
+          }
+        }
+
+        return { closest, minDistance };
+      }
+
+      function getStateByDistance(distance) {
+        if (isLocked) return STATE.LOCKED;
+        if (distance < 5) return STATE.DANGER;
+        if (distance <= 20) return STATE.DANGER;
+        if (distance <= 50) return STATE.WARNING;
+        return STATE.SAFE;
+      }
+
+      function strengthPercent(distance) {
+        const maxRange = 120;
+        const clamped = Math.max(0, Math.min(maxRange, distance));
+        return Math.round(((maxRange - clamped) / maxRange) * 100);
+      }
+
+      function playClickSound() {
+        if (!clickAudio) return;
+        clickAudio.currentTime = 0;
+        clickAudio.play().catch(function () {});
+      }
+
+      function computeClickInterval(distance) {
+        if (isLocked) return null;
+        if (!Number.isFinite(distance)) return 2200;
+        const maxDistance = 120;
+        const d = Math.max(0, Math.min(maxDistance, distance));
+        const minMs = 80;
+        const maxMs = 2200;
+        const ratio = d / maxDistance;
+        return Math.round(minMs + (maxMs - minMs) * ratio);
+      }
+
+      function updateClickLoop(distance) {
+        const interval = computeClickInterval(distance);
+        if (interval === null) {
+          if (clickTimer) {
+            clearInterval(clickTimer);
+            clickTimer = null;
+          }
+          return;
+        }
+
+        if (clickTimer) {
+          clearInterval(clickTimer);
+          clickTimer = null;
+        }
+        clickTimer = setInterval(playClickSound, interval);
+      }
+
+      function lockOnTarget() {
+        if (isLocked) return;
+        isLocked = true;
+        currentState = STATE.LOCKED;
+        UI.lockedZone.textContent = "Zone: " + nearestZone.name;
+        UI.lockedPanel.style.display = "flex";
+        UI.app.style.background = "#ffffff";
+        UI.app.style.color = "#cc0000";
+        UI.header.textContent = "SYSTEM: TARGET LOCKED";
+        UI.icon.textContent = "!";
+        UI.icon.classList.remove("flash");
+        UI.iconWrap.classList.remove("danger-pulse");
+        updateClickLoop(Number.POSITIVE_INFINITY);
+      }
+
+      function setStateVisual(state, distance) {
+        UI.app.classList.remove("danger-pulse");
+        UI.icon.classList.remove("flash");
+
+        if (state === STATE.LOCKED) return;
+
+        UI.app.style.color = "#f5f7fa";
+        UI.lockedPanel.style.display = "none";
+
+        if (state === STATE.SAFE) {
+          UI.app.style.background = "#0d3b1e";
+          UI.header.textContent = "SYSTEM: SCANNING...";
+          UI.icon.textContent = "☢";
+        } else if (state === STATE.WARNING) {
+          UI.app.style.background = "#b77900";
+          UI.header.textContent = "SYSTEM: SIGNAL DETECTED";
+          UI.icon.textContent = "☢";
+        } else {
+          UI.app.style.background = "#8b0000";
+          UI.header.textContent = "SYSTEM: CRITICAL: NEAR SOURCE";
+          UI.icon.textContent = "!";
+          UI.icon.classList.add("flash");
+          UI.app.classList.add("danger-pulse");
+        }
+
+        const pct = strengthPercent(distance);
+        UI.progressFill.style.width = pct + "%";
+      }
+
+      function processDistanceState(distance) {
+        if (isLocked) return;
+
+        const now = Date.now();
+        const nextState = getStateByDistance(distance);
+
+        if (distance < 5) {
+          if (!lockCandidateSince) {
+            lockCandidateSince = now;
+          } else if (now - lockCandidateSince >= 3000) {
+            lockOnTarget();
+            return;
+          }
+        } else {
+          lockCandidateSince = null;
+        }
+
+        currentState = nextState;
+        setStateVisual(currentState, distance);
+        updateClickLoop(distance);
+      }
+
+      function updateReadouts(lat, lon) {
+        UI.latReadout.textContent = Number(lat).toFixed(6);
+        UI.longReadout.textContent = Number(lon).toFixed(6);
+      }
+
+      function onPositionSuccess(position) {
+        const { latitude, longitude } = position.coords;
+        userLat = latitude;
+        userLon = longitude;
+        updateReadouts(userLat, userLon);
+
+        const closestData = findClosestZone(userLat, userLon);
+        nearestZone = closestData.closest;
+        nearestDistance = closestData.minDistance;
+        processDistanceState(nearestDistance);
+      }
+
+      function onPositionError(err) {
+        UI.header.textContent = "SYSTEM ERROR: " + err.message.toUpperCase();
+      }
+
+      function startTracking() {
+        if (!("geolocation" in navigator)) {
+          UI.header.textContent = "SYSTEM ERROR: GEOLOCATION UNSUPPORTED";
+          return;
+        }
+
+        watchId = navigator.geolocation.watchPosition(onPositionSuccess, onPositionError, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 1000
+        });
+      }
+
+      function stopTracking() {
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId);
+          watchId = null;
+        }
+      }
+
+      function resetScanner() {
+        isLocked = false;
+        lockCandidateSince = null;
+        currentState = STATE.SAFE;
+        UI.app.style.color = "#f5f7fa";
+        UI.lockedPanel.style.display = "none";
+        setStateVisual(STATE.SAFE, 120);
+        updateClickLoop(120);
+      }
+
+      function beginMission() {
+        clickAudio = new Audio("click.mp3");
+        clickAudio.preload = "auto";
+        clickAudio.volume = 0.75;
+
+        UI.splash.style.display = "none";
+        UI.app.classList.add("active");
+
+        playClickSound();
+        setStateVisual(STATE.SAFE, 120);
+        updateClickLoop(120);
+        startTracking();
+      }
+
+      UI.beginBtn.addEventListener("click", beginMission);
+      UI.restartBtn.addEventListener("click", function () {
+        resetScanner();
+        if (userLat !== null && userLon !== null) {
+          const closestData = findClosestZone(userLat, userLon);
+          nearestZone = closestData.closest;
+          nearestDistance = closestData.minDistance;
+          processDistanceState(nearestDistance);
+        }
+      });
+
+      window.addEventListener("beforeunload", function () {
+        stopTracking();
+        if (clickTimer) clearInterval(clickTimer);
+      });
+    })();
+  </script>
+</body>
+</html>
