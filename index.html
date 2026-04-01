@@ -353,14 +353,14 @@
 
       function getStateByDistance(distance) {
         if (isLocked) return STATE.LOCKED;
-        if (distance < 10) return STATE.DANGER;
-        if (distance <= 30) return STATE.DANGER;
-        if (distance <= 80) return STATE.WARNING;
+        if (distance < 5) return STATE.DANGER;
+        if (distance <= 10) return STATE.DANGER;
+        if (distance <= 30) return STATE.WARNING;
         return STATE.SAFE;
       }
 
       function strengthPercent(distance) {
-        const maxRange = 200;
+        const maxRange = 120;
         const clamped = Math.max(0, Math.min(maxRange, distance));
         return Math.round(((maxRange - clamped) / maxRange) * 100);
       }
@@ -374,9 +374,9 @@
       function computeClickInterval(distance) {
         if (isLocked) return null;
         if (!Number.isFinite(distance)) return 2200;
-        const maxDistance = 200;
+        const maxDistance = 120;
         const d = Math.max(0, Math.min(maxDistance, distance));
-        const minMs = 120;
+        const minMs = 80;
         const maxMs = 2200;
         const ratio = d / maxDistance;
         return Math.round(minMs + (maxMs - minMs) * ratio);
@@ -449,10 +449,10 @@
         const now = Date.now();
         const nextState = getStateByDistance(distance);
 
-        if (distance < 10) {
+        if (distance < 5) {
           if (!lockCandidateSince) {
             lockCandidateSince = now;
-          } else if (now - lockCandidateSince >= 4000) {
+          } else if (now - lockCandidateSince >= 3000) {
             lockOnTarget();
             return;
           }
@@ -466,8 +466,8 @@
       }
 
       function updateReadouts(lat, lon) {
-        UI.latReadout.textContent = Number(lat).toFixed(6);
-        UI.longReadout.textContent = Number(lon).toFixed(6);
+        UI.latReadout.textContent = Number(lat).toFixed(7);
+        UI.longReadout.textContent = Number(lon).toFixed(7);
       }
 
       function onPositionSuccess(position) {
@@ -494,8 +494,8 @@
 
         watchId = navigator.geolocation.watchPosition(onPositionSuccess, onPositionError, {
           enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 1000
+          timeout: 5000,
+          maximumAge: 0
         });
       }
 
