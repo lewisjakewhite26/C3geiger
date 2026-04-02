@@ -319,6 +319,7 @@
       let clickAudio = null;
       let userLat = null;
       let userLon = null;
+      let userAccuracy = null;
 
       function toRad(value) {
         return (value * Math.PI) / 180;
@@ -357,6 +358,13 @@
         if (distance <= 10) return STATE.DANGER;
         if (distance <= 30) return STATE.WARNING;
         return STATE.SAFE;
+      }
+
+      function adjustedDistance(distance, accuracy) {
+        if (!Number.isFinite(distance)) return distance;
+        if (!Number.isFinite(accuracy)) return distance;
+        const compensation = Math.min(accuracy * 0.6, 20);
+        return Math.max(0, distance - compensation);
       }
 
       function strengthPercent(distance) {
@@ -471,15 +479,23 @@
       }
 
       function onPositionSuccess(position) {
-        const { latitude, longitude } = position.coords;
+        const { latitude, longitude, accuracy } = position.coords;
         userLat = latitude;
         userLon = longitude;
+        userAccuracy = accuracy;
         updateReadouts(userLat, userLon);
 
         const closestData = findClosestZone(userLat, userLon);
         nearestZone = closestData.closest;
         nearestDistance = closestData.minDistance;
-        processDistanceState(nearestDistance);
+        const effectiveDistance = adjustedDistance(nearestDistance, userAccuracy);
+        processDistanceState(effectiveDistance);
+
+        UI.header.textContent =
+          "SYSTEM: " + currentState +
+          " | " + nearestZone.name +
+          " " + Math.round(nearestDistance) + "m" +
+          " (GPS ±" + Math.round(userAccuracy) + "m)";
       }
 
       function onPositionError(err) {
@@ -494,8 +510,8 @@
 
         watchId = navigator.geolocation.watchPosition(onPositionSuccess, onPositionError, {
           enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
+          timeout: 15000,
+          maximumAge: 1000
         });
       }
 
